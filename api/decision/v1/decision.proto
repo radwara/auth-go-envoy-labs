@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package authz.decision.v1;
+
+option go_package = "authzlab/api/decision/v1;decisionv1";
+
+service DecisionService {
+  rpc Check(CheckRequest) returns (CheckResponse);
+}
+
+message CheckRequest {
+  string subject = 1;
+  string action = 2;
+  string resource = 3;
+}
+
+message CheckResponse {
+  bool allowed = 1;
+  string reason = 2;
+  string replica = 3;
+}
