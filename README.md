@@ -3,6 +3,7 @@
 An interview lab with a Go policy control plane, a two-replica gRPC decision plane, and a concurrent Go job service. Envoy handles HTTP routing, gRPC load balancing, active health checks, bounded retries, circuit breakers, access logs, and Prometheus-format metrics. PostgreSQL stores authorization policies.
 
 - [Architecture, diagrams, and design decisions](docs/architecture.md)
+- [TLS and mTLS exercise](docs/tls-lab.md)
 - [Issue-to-review workflow graph](docs/agent-workflow.md)
 - [GitHub issues](https://github.com/radwara/auth-go-envoy-labs/issues)
 
