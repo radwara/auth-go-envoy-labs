@@ -19,7 +19,7 @@ type Match struct {
 
 func (m Match) Valid() bool {
 	for _, value := range []string{m.Subject, m.Action, m.Resource} {
-		if strings.TrimSpace(value) == "" || len(value) > 200 {
+		if strings.TrimSpace(value) == "" || len(value) > 200 || strings.ContainsRune(value, '\x00') {
 			return false
 		}
 	}

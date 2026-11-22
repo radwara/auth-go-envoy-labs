@@ -53,6 +53,7 @@ func TestCheckOverGRPC(t *testing.T) {
 		{"deny", "bob", "explicit_deny", false, codes.OK},
 		{"no match", "charlie", "no_matching_policy", false, codes.OK},
 		{"invalid", "", "", false, codes.InvalidArgument},
+		{"embedded NUL", "ali\x00ce", "", false, codes.InvalidArgument},
 		{"database unavailable", "db-error", "", false, codes.Unavailable},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
