@@ -1,0 +1,145 @@
+admin:
+  address:
+    socket_address: {address: 0.0.0.0, port_value: 9901}
+static_resources:
+  listeners:
+    - name: rest
+      address:
+        socket_address: {address: 0.0.0.0, port_value: 8080}
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: rest
+                codec_type: AUTO
+                route_config:
+                  name: rest_routes
+                  virtual_hosts:
+                    - name: lab
+                      domains: ["*"]
+                      routes:
+                        - match: {path: /healthz}
+                          route: {cluster: control, timeout: 3s}
+                        - match: {path: /policies}
+                          route: {cluster: control, timeout: 3s}
+                        - match: {prefix: "/policies/"}
+                          route: {cluster: control, timeout: 3s}
+                        - match: {path: /authorize}
+                          route: {cluster: control, timeout: 3s}
+                        - match: {path: /jobs}
+                          route: {cluster: jobs, timeout: 3s}
+                        - match: {prefix: "/jobs/"}
+                          route: {cluster: jobs, timeout: 3s}
+                        - match: {prefix: "/"}
+                          direct_response: {status: 404}
+                http_filters:
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                access_log:
+                  - name: envoy.access_loggers.stdout
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
+    - name: grpc
+      address:
+        socket_address: {address: 0.0.0.0, port_value: 9090}
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: grpc
+                codec_type: HTTP2
+                route_config:
+                  name: grpc_routes
+                  virtual_hosts:
+                    - name: lab
+                      domains: ["*"]
+                      routes:
+                        - match: {path: /authz.decision.v1.DecisionService/Check}
+                          route:
+                            cluster: decision
+                            timeout: 1.8s
+                            retry_policy:
+                              retry_on: "connect-failure,reset,unavailable"
+                              num_retries: 1
+                              per_try_timeout: 0.85s
+                        - match: {prefix: "/"}
+                          direct_response: {status: 404}
+                http_filters:
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                access_log:
+                  - name: envoy.access_loggers.stdout
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
+  clusters:
+  - name: control
+    type: STRICT_DNS
+    connect_timeout: 0.25s
+    lb_policy: ROUND_ROBIN
+    health_checks:
+      - timeout: 0.5s
+        interval: 1s
+        unhealthy_threshold: 2
+        healthy_threshold: 1
+        http_health_check: {path: /healthz, expected_statuses: [{start: 204, end: 205}]}
+    load_assignment:
+      cluster_name: control
+      endpoints:
+        - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address: {address: control, port_value: 8081}
+  - name: jobs
+    type: STRICT_DNS
+    connect_timeout: 0.25s
+    lb_policy: ROUND_ROBIN
+    health_checks:
+      - timeout: 0.5s
+        interval: 1s
+        unhealthy_threshold: 2
+        healthy_threshold: 1
+        http_health_check: {path: /healthz, expected_statuses: [{start: 204, end: 205}]}
+    load_assignment:
+      cluster_name: jobs
+      endpoints:
+        - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address: {address: jobs, port_value: 8082}
+  - name: decision
+    type: STRICT_DNS
+    connect_timeout: 0.25s
+    lb_policy: ROUND_ROBIN
+    health_checks:
+      - timeout: 0.5s
+        interval: 1s
+        unhealthy_threshold: 2
+        healthy_threshold: 1
+        grpc_health_check: {}
+    common_lb_config:
+      healthy_panic_threshold: {value: 0}
+    circuit_breakers:
+      thresholds:
+        - max_connections: 8
+          max_pending_requests: 16
+          max_requests: 32
+          max_retries: 4
+    typed_extension_protocol_options:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        explicit_http_config:
+          http2_protocol_options: {}
+    load_assignment:
+      cluster_name: decision
+      endpoints:
+        - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address: {address: decision-a, port_value: 9090}
+            - endpoint:
+                address:
+                  socket_address: {address: decision-b, port_value: 9090}
