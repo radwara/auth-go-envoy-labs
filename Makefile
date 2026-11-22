@@ -15,3 +15,7 @@ validate-envoy:
 
 smoke:
 	bash scripts/smoke.sh
+
+.PHONY: smoke-tls
+smoke-tls:
+	bash scripts/smoke-tls.sh
